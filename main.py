@@ -16,7 +16,6 @@ import schemas
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Initialize database tables and default values
     init_db()
     yield
 
@@ -28,7 +27,6 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# Static and Templates mounting
 os.makedirs("static/css", exist_ok=True)
 os.makedirs("static/js", exist_ok=True)
 os.makedirs("templates", exist_ok=True)
@@ -36,8 +34,6 @@ os.makedirs("templates", exist_ok=True)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 
-
-# --- Helper Functions ---
 
 def get_setting_val(db: Session, key: str, default: str = "") -> str:
     setting = db.query(AppSetting).filter(AppSetting.key == key).first()
@@ -54,6 +50,7 @@ def set_setting_val(db: Session, key: str, value: str):
     db.commit()
 
 
+# แก้ไขจุดนี้ให้มี = Depends(get_db) เพื่อให้รันบน Render ได้สมบูรณ์
 def check_admin(db: Session = Depends(get_db), x_admin_pin: Optional[str] = Header(None)):
     current_pin = get_setting_val(db, "admin_pin", os.getenv("ADMIN_PIN", "1234"))
     if not x_admin_pin or x_admin_pin.strip() != current_pin.strip():
@@ -68,7 +65,6 @@ def compute_leaderboard(db: Session):
     teams = db.query(Team).all()
     logs = db.query(ScoreLog).all()
 
-    # Pre-aggregate scores
     team_stats = {
         t.id: {
             "id": t.id,
@@ -95,21 +91,17 @@ def compute_leaderboard(db: Session):
             elif log.award_type == "bronze":
                 team_stats[log.team_id]["bronze_count"] += 1
 
-    # Sort teams by total_score desc, gold desc, silver desc, bronze desc
     sorted_teams = sorted(
         team_stats.values(),
         key=lambda x: (x["total_score"], x["gold_count"], x["silver_count"], x["bronze_count"]),
         reverse=True
     )
 
-    # Assign ranks
     for index, item in enumerate(sorted_teams):
         item["rank"] = index + 1
 
     return sorted_teams
 
-
-# --- Web Page Route ---
 
 @app.get("/", response_class=HTMLResponse)
 async def home(request: Request, db: Session = Depends(get_db)):
@@ -120,14 +112,10 @@ async def home(request: Request, db: Session = Depends(get_db)):
     })
 
 
-# --- Healthcheck ---
-
 @app.get("/health")
 def healthcheck():
     return {"status": "ok", "timestamp": datetime.utcnow().isoformat()}
 
-
-# --- Authentication ---
 
 @app.post("/api/auth/verify")
 def verify_pin(data: schemas.VerifyPinRequest, db: Session = Depends(get_db)):
@@ -136,8 +124,6 @@ def verify_pin(data: schemas.VerifyPinRequest, db: Session = Depends(get_db)):
         return {"success": True, "message": "ยืนยันรหัส PIN สำเร็จ"}
     raise HTTPException(status_code=400, detail="รหัสผ่าน PIN ไม่ถูกต้อง")
 
-
-# --- Leaderboard API ---
 
 @app.get("/api/leaderboard")
 def get_leaderboard(db: Session = Depends(get_db)):
@@ -158,8 +144,6 @@ def get_leaderboard(db: Session = Depends(get_db)):
         "podium": leaderboard[:3] if len(leaderboard) >= 3 else leaderboard
     }
 
-
-# --- Teams API ---
 
 @app.get("/api/teams")
 def list_teams(db: Session = Depends(get_db)):
@@ -219,8 +203,6 @@ def delete_team(
     return {"success": True, "message": f"ลบ {team.name} เรียบร้อยแล้ว"}
 
 
-# --- Sports API ---
-
 @app.get("/api/sports")
 def list_sports(db: Session = Depends(get_db)):
     sports = db.query(Sport).order_by(Sport.category, Sport.name).all()
@@ -256,8 +238,6 @@ def delete_sport(
     db.commit()
     return {"success": True, "message": f"ลบกีฬา {sport.name} แล้ว"}
 
-
-# --- Scores & Logs API ---
 
 @app.get("/api/scores")
 def list_scores(
@@ -297,7 +277,6 @@ def add_score(
     if not team:
         raise HTTPException(status_code=404, detail="ไม่พบข้อมูลสีที่เลือก")
 
-    # Determine points if not explicitly specified
     pts = score_in.points
     if pts is None:
         gold_pts = int(get_setting_val(db, "gold_points", "10"))
@@ -350,8 +329,6 @@ def delete_score(
     db.commit()
     return {"success": True, "message": "ลบรายการบันทึกคะแนนเรียบร้อยแล้ว"}
 
-
-# --- Settings API ---
 
 @app.get("/api/settings")
 def get_settings(db: Session = Depends(get_db)):
