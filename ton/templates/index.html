@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ title }} | Live Scoreboard</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- SweetAlert2 -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <!-- Canvas Confetti -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
+    <!-- Google Fonts & Custom CSS -->
+    <link rel="stylesheet" href="/static/css/custom.css">
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        stadium: '#0f172a',
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen selection:bg-indigo-500 selection:text-white flex flex-col">
+
+    <!-- Top Sticky Navigation Bar -->
+    <header class="sticky top-0 z-40 bg-slate-900/90 backdrop-blur-md border-b border-slate-800">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
+            <!-- Left: Logo & Event Title -->
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-500 via-rose-500 to-indigo-600 flex items-center justify-center text-xl shadow-lg shadow-indigo-500/20">
+                    🏆
+                </div>
+                <div>
+                    <h1 id="event-title" class="font-heading font-extrabold text-base sm:text-xl text-white tracking-wide truncate max-w-[200px] sm:max-w-md">
+                        {{ title }}
+                    </h1>
+                    <div class="flex items-center gap-2 text-xs text-slate-400">
+                        <span class="inline-flex items-center gap-1">
+                            <span class="w-2 h-2 rounded-full bg-emerald-400 pulse-live"></span>
+                            ถ่ายทอดคะแนนสด
+                        </span>
+                        <span>•</span>
+                        <span id="auto-refresh-countdown" class="text-slate-500">10s</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right: Action Buttons -->
+            <div class="flex items-center gap-2 sm:gap-3">
+                <!-- Admin quick score button -->
+                <button onclick="openModal('modal-add-score')" class="admin-only hidden inline-flex items-center gap-1.5 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-semibold text-xs sm:text-sm px-3.5 py-2 rounded-xl shadow-lg shadow-orange-500/25 transition-all transform active:scale-95">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"></path></svg>
+                    <span>บันทึกคะแนน</span>
+                </button>
+
+                <!-- Manage Teams button (Admin only) -->
+                <button onclick="openModal('modal-manage-teams')" class="admin-only hidden text-slate-300 hover:text-white p-2 rounded-xl hover:bg-slate-800 border border-slate-700/60 transition-colors" title="จัดการสี/ทีม">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01"></path></svg>
+                </button>
+
+                <!-- Settings button (Admin only) -->
+                <button onclick="openModal('modal-settings')" class="admin-only hidden text-slate-300 hover:text-white p-2 rounded-xl hover:bg-slate-800 border border-slate-700/60 transition-colors" title="ตั้งค่าระบบ">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                </button>
+
+                <!-- Fullscreen Projector Mode -->
+                <button onclick="toggleFullscreen()" class="text-slate-300 hover:text-white p-2 rounded-xl hover:bg-slate-800 border border-slate-700/60 transition-colors" title="โหมดจอใหญ่ / โปรเจกเตอร์">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"></path></svg>
+                </button>
+
+                <!-- Manual Refresh -->
+                <button onclick="loadData(true)" class="text-slate-300 hover:text-white p-2 rounded-xl hover:bg-slate-800 border border-slate-700/60 transition-colors" title="รีเฟรช">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                </button>
+
+                <!-- Admin Auth Button -->
+                <div id="admin-login-btn"></div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="flex-grow max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 w-full space-y-8">
+
+        <!-- Top 3 Podium Section -->
+        <section>
+            <div class="flex items-center justify-between mb-4">
+                <div class="flex items-center gap-2">
+                    <span class="text-2xl">🎖️</span>
+                    <h2 class="font-heading font-bold text-xl sm:text-2xl text-white">ผู้นำ 3 อันดับแรก (Podium)</h2>
+                </div>
+                <div class="text-xs text-slate-400" id="user-status-text"></div>
+            </div>
+            
+            <div id="podium-container" class="grid grid-cols-1 md:grid-cols-3 gap-4 lg:gap-6 items-end pt-4 pb-2">
+                <!-- Dynamic Podium Cards inserted via JS -->
+            </div>
+        </section>
+
+        <!-- Main Scoreboard & Activity Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            
+            <!-- Left 2 Cols: Comprehensive Scoreboard Table -->
+            <section class="lg:col-span-2 space-y-4">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-2">
+                        <span class="text-xl">📊</span>
+                        <h2 class="font-heading font-bold text-xl text-white">ตารางสรุปคะแนนรวม</h2>
+                    </div>
+                </div>
+
+                <div class="bg-slate-900/70 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-sm">
+                            <thead class="bg-slate-800/80 text-xs uppercase tracking-wider text-slate-400 border-b border-slate-700/80">
+                                <tr>
+                                    <th scope="col" class="py-3 px-4 text-center w-14">อันดับ</th>
+                                    <th scope="col" class="py-3 px-4">สี / ทีม</th>
+                                    <th scope="col" class="py-3 px-4 text-center">🥇 ทอง</th>
+                                    <th scope="col" class="py-3 px-4 text-center">🥈 เงิน</th>
+                                    <th scope="col" class="py-3 px-4 text-center">🥉 ทองแดง</th>
+                                    <th scope="col" class="py-3 px-4 text-center">แข่งขัน</th>
+                                    <th scope="col" class="py-3 px-4 text-right">คะแนนรวม</th>
+                                </tr>
+                            </thead>
+                            <tbody id="scoreboard-body">
+                                <!-- Dynamic rows inserted via JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Point Distribution Rules Note -->
+                <div class="bg-slate-900/40 border border-slate-800/80 rounded-xl p-3.5 text-xs text-slate-400 flex flex-wrap items-center justify-between gap-3">
+                    <div class="flex items-center gap-2">
+                        <span>เกณฑ์การให้คะแนนมาตรฐาน:</span>
+                        <span class="text-yellow-400 font-semibold">🥇 ทอง 10 คะแนน</span>
+                        <span>•</span>
+                        <span class="text-slate-300 font-semibold">🥈 เงิน 7 คะแนน</span>
+                        <span>•</span>
+                        <span class="text-amber-500 font-semibold">🥉 ทองแดง 5 คะแนน</span>
+                    </div>
+                    <div>
+                        <span class="text-slate-500">* คะแนนพิเศษ (เชียร์/พาเหรด) ตามกรรมการกำหนด</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Right 1 Col: Live Activity Feed (ประวัติคะแนนล่าสุด) -->
+            <section class="space-y-4">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-2">
+                        <span class="text-xl">⚡</span>
+                        <h2 class="font-heading font-bold text-xl text-white">ประวัติคะแนนล่าสุด</h2>
+                    </div>
+                    <span class="text-xs text-slate-500">30 รายการล่าสุด</span>
+                </div>
+
+                <div class="bg-slate-900/70 border border-slate-800 rounded-2xl p-3 shadow-xl">
+                    <div id="recent-logs-list" class="space-y-2.5 max-h-[580px] overflow-y-auto pr-1">
+                        <!-- Dynamic logs inserted via JS -->
+                    </div>
+                </div>
+            </section>
+
+        </div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="mt-auto border-t border-slate-900 bg-slate-950/80 py-6 text-center text-xs text-slate-500">
+        <p>ระบบบันทึกและถ่ายทอดคะแนนกีฬาสี • ขับเคลื่อนด้วย FastAPI & Python • ติดตั้งพร้อมรันบน Render.com</p>
+    </footer>
+
+    <!-- ================= MODALS ================= -->
+
+    <!-- Modal 1: Add Score Modal -->
+    <div id="modal-add-score" class="modal-backdrop fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm hidden">
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-lg w-full p-6 shadow-2xl relative max-h-[90vh] overflow-y-auto">
+            <button onclick="closeModal('modal-add-score')" class="absolute top-4 right-4 text-slate-400 hover:text-white">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+            </button>
+
+            <div class="flex items-center gap-2.5 mb-5">
+                <span class="text-2xl">📝</span>
+                <h3 class="font-heading font-bold text-xl text-white">บันทึกผลการแข่งขัน / คะแนน</h3>
+            </div>
+
+            <form id="form-add-score" class="space-y-4">
+                <!-- Choose Team -->
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">เลือกสี / ทีม</label>
+                    <div id="team-radio-group" class="grid grid-cols-2 gap-2">
+                        <!-- Populated dynamically -->
+                    </div>
+                </div>
+
+                <!-- Choose Sport / Event -->
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1">ชนิดกีฬา / รายการแข่งขัน</label>
+                    <input type="text" id="score-sport-input" list="sport-datalist" placeholder="เช่น ฟุตบอล, วิ่ง 100ม., กองเชียร์" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3.5 py-2.5 text-white text-sm focus:outline-none focus:border-indigo-500" required>
+                    <datalist id="sport-datalist">
+                        <!-- Populated dynamically -->
+                    </datalist>
+                </div>
+
+                <!-- Award Type / Points -->
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">ระดับรางวัล / ประเภทคะแนน</label>
+                    <div class="grid grid-cols-2 gap-2 text-sm">
+                        <label class="cursor-pointer border border-slate-700 rounded-xl p-2.5 flex items-center gap-2 hover:border-slate-500">
+                            <input type="radio" name="score_award_type" value="gold" checked class="accent-indigo-500">
+                            <span>🥇 เหรียญทอง <span id="label-gold-pts" class="text-yellow-400 text-xs font-bold">(+10)</span></span>
+                        </label>
+                        <label class="cursor-pointer border border-slate-700 rounded-xl p-2.5 flex items-center gap-2 hover:border-slate-500">
+                            <input type="radio" name="score_award_type" value="silver" class="accent-indigo-500">
+                            <span>🥈 เหรียญเงิน <span id="label-silver-pts" class="text-slate-300 text-xs font-bold">(+7)</span></span>
+                        </label>
+                        <label class="cursor-pointer border border-slate-700 rounded-xl p-2.5 flex items-center gap-2 hover:border-slate-500">
+                            <input type="radio" name="score_award_type" value="bronze" class="accent-indigo-500">
+                            <span>🥉 เหรียญทองแดง <span id="label-bronze-pts" class="text-amber-500 text-xs font-bold">(+5)</span></span>
+                        </label>
+                        <label class="cursor-pointer border border-slate-700 rounded-xl p-2.5 flex items-center gap-2 hover:border-slate-500">
+                            <input type="radio" name="score_award_type" value="custom" class="accent-indigo-500">
+                            <span>⭐️ คะแนนพิเศษ/อื่นๆ</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Custom Points Input (Shown if custom chosen) -->
+                <div id="custom-points-wrapper" class="hidden">
+                    <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1">ระบุจำนวนคะแนน</label>
+                    <input type="number" id="score-custom-points" value="1" min="1" max="1000" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3.5 py-2 text-white text-sm focus:outline-none focus:border-indigo-500">
+                </div>
+
+                <!-- Note / Description -->
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1">รายละเอียดเพิ่มเติม (ถ้ามี)</label>
+                    <input type="text" id="score-desc-input" placeholder="เช่น รุ่น ม.ปลาย, รอบชิงชนะเลิศ" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3.5 py-2.5 text-white text-sm focus:outline-none focus:border-indigo-500">
+                </div>
+
+                <!-- Recorded By -->
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1">ผู้บันทึกคะแนน</label>
+                    <input type="text" id="score-recorder-input" value="กรรมการสนาม" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3.5 py-2 text-white text-sm focus:outline-none focus:border-indigo-500">
+                </div>
+
+                <div class="pt-3">
+                    <button type="submit" class="w-full bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-bold py-3 rounded-xl shadow-lg shadow-orange-500/25 transition-all text-sm">
+                        บันทึกคะแนนทันที
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal 2: Admin Login PIN -->
+    <div id="modal-login" class="modal-backdrop fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm hidden">
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-sm w-full p-6 shadow-2xl relative">
+            <button onclick="closeModal('modal-login')" class="absolute top-4 right-4 text-slate-400 hover:text-white">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+            </button>
+
+            <div class="text-center mb-6">
+                <div class="w-14 h-14 bg-indigo-500/20 text-indigo-400 rounded-2xl flex items-center justify-center mx-auto mb-3 text-2xl border border-indigo-500/30">
+                    🔑
+                </div>
+                <h3 class="font-heading font-bold text-lg text-white">เข้าสู่ระบบผู้ดูแลระบบ</h3>
+                <p class="text-xs text-slate-400 mt-1">กรอกรหัส PIN เพื่อเปิดโหมดบันทึกคะแนน (ค่าเริ่มต้นคือ 1234)</p>
+            </div>
+
+            <form id="form-login" class="space-y-4">
+                <div>
+                    <input type="password" id="login-pin-input" maxlength="20" placeholder="รหัส PIN" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white text-center text-xl tracking-widest focus:outline-none focus:border-indigo-500" required autofocus>
+                </div>
+                <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 rounded-xl transition-all text-sm">
+                    ยืนยันรหัสผ่าน
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal 3: Manage Teams -->
+    <div id="modal-manage-teams" class="modal-backdrop fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm hidden">
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-md w-full p-6 shadow-2xl relative max-h-[90vh] overflow-y-auto">
+            <button onclick="closeModal('modal-manage-teams')" class="absolute top-4 right-4 text-slate-400 hover:text-white">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+            </button>
+
+            <div class="flex items-center gap-2 mb-4">
+                <span class="text-2xl">🎨</span>
+                <h3 class="font-heading font-bold text-xl text-white">จัดการสี / ทีม</h3>
+            </div>
+
+            <!-- Existing teams list -->
+            <div class="space-y-2 mb-6">
+                <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">สีที่มีอยู่ในระบบ</label>
+                <div id="manage-teams-list" class="space-y-2 max-h-48 overflow-y-auto">
+                    <!-- Dynamic -->
+                </div>
+            </div>
+
+            <!-- Add New Team Form -->
+            <form id="form-create-team" class="border-t border-slate-800 pt-4 space-y-3">
+                <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider">เพิ่มสีใหม่</label>
+                <div class="flex gap-2">
+                    <input type="text" id="new-team-name" placeholder="เช่น สีม่วง (Purple Orchid)" class="flex-grow bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white text-sm focus:outline-none focus:border-indigo-500" required>
+                    <input type="color" id="new-team-color" value="#8B5CF6" class="w-12 h-10 bg-slate-800 border border-slate-700 rounded-xl p-1 cursor-pointer">
+                </div>
+                <button type="submit" class="w-full bg-slate-800 hover:bg-slate-700 text-white font-medium py-2 rounded-xl text-sm border border-slate-700">
+                    + เพิ่มสีนี้เข้าระบบ
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal 4: Settings -->
+    <div id="modal-settings" class="modal-backdrop fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm hidden">
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-md w-full p-6 shadow-2xl relative max-h-[90vh] overflow-y-auto">
+            <button onclick="closeModal('modal-settings')" class="absolute top-4 right-4 text-slate-400 hover:text-white">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+            </button>
+
+            <div class="flex items-center gap-2 mb-4">
+                <span class="text-2xl">⚙️</span>
+                <h3 class="font-heading font-bold text-xl text-white">ตั้งค่าระบบ</h3>
+            </div>
+
+            <form id="form-settings" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1">ชื่องานกีฬาสี</label>
+                    <input type="text" id="setting-title" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white text-sm focus:outline-none focus:border-indigo-500" required>
+                </div>
+
+                <div class="grid grid-cols-3 gap-2">
+                    <div>
+                        <label class="block text-xs font-semibold text-yellow-400 mb-1">🥇 เหรียญทอง</label>
+                        <input type="number" id="setting-gold" min="1" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-300 mb-1">🥈 เหรียญเงิน</label>
+                        <input type="number" id="setting-silver" min="1" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-amber-500 mb-1">🥉 เหรียญทองแดง</label>
+                        <input type="number" id="setting-bronze" min="1" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white text-sm">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1">เปลี่ยนรหัสผ่าน PIN ผู้ดูแล</label>
+                    <input type="password" id="setting-pin" placeholder="เว้นว่างถ้าไม่ต้องการเปลี่ยน" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white text-sm focus:outline-none focus:border-indigo-500">
+                </div>
+
+                <div class="pt-2">
+                    <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 rounded-xl text-sm transition-all">
+                        บันทึกการตั้งค่า
+                    </button>
+                </div>
+            </form>
+
+            <!-- Danger Zone -->
+            <div class="border-t border-red-500/20 mt-6 pt-4">
+                <label class="block text-xs font-semibold text-red-400 uppercase tracking-wider mb-2">ล้างข้อมูล / เริ่มงานใหม่ (Danger Zone)</label>
+                <button onclick="handleResetScores()" class="w-full bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 font-semibold py-2 rounded-xl text-xs transition-colors">
+                    ⚠️ รีเซ็ตคะแนนทั้งหมดให้เป็น 0
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- App Logic Script -->
+    <script src="/static/js/app.js"></script>
+</body>
+</html>
+

@@ -1,0 +1,609 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🏆 ระบบบันทึกและถ่ายทอดสดคะแนนกีฬาสี</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- SweetAlert2 -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <!-- Canvas Confetti -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
+    <!-- Google Fonts Kanit & Prompt -->
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700;800&family=Prompt:wght@400;500;600;700&display=swap">
+    <style>
+        body { font-family: 'Prompt', -apple-system, BlinkMacSystemFont, sans-serif; }
+        h1, h2, h3, h4 { font-family: 'Kanit', sans-serif; }
+        .pulse-live { animation: pulse-dot 1.8s infinite; }
+        @keyframes pulse-dot {
+            0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7); }
+            70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(34, 197, 94, 0); }
+            100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
+        }
+        .podium-card { transition: all 0.3s ease; }
+        .podium-card:hover { transform: translateY(-4px); }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col selection:bg-indigo-500 selection:text-white">
+
+    <!-- Top Sticky Header -->
+    <header class="sticky top-0 z-40 bg-slate-900/90 backdrop-blur-md border-b border-slate-800">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
+            <!-- Left: Logo & Event Title -->
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-500 via-rose-500 to-indigo-600 flex items-center justify-center text-xl shadow-lg shadow-indigo-500/20">
+                    🏆
+                </div>
+                <div>
+                    <h1 id="event-title" class="font-extrabold text-base sm:text-xl text-white tracking-wide truncate max-w-[200px] sm:max-w-md">
+                        มหกรรมกีฬาสีสัมพันธ์ 2026
+                    </h1>
+                    <div class="flex items-center gap-2 text-xs text-slate-400">
+                        <span class="inline-flex items-center gap-1">
+                            <span class="w-2 h-2 rounded-full bg-emerald-400 pulse-live"></span>
+                            ถ่ายทอดคะแนนสด (Live)
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right: Action Buttons -->
+            <div class="flex items-center gap-2">
+                <!-- Add Score Button -->
+                <button onclick="openModal('modal-add-score')" class="inline-flex items-center gap-1.5 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-semibold text-xs sm:text-sm px-3.5 py-2 rounded-xl shadow-lg shadow-orange-500/25 transition-all transform active:scale-95">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"></path></svg>
+                    <span>บันทึกคะแนน</span>
+                </button>
+
+                <!-- Manage Teams Button -->
+                <button onclick="openModal('modal-manage-teams')" class="text-slate-300 hover:text-white p-2 rounded-xl hover:bg-slate-800 border border-slate-700/60 transition-colors" title="จัดการสี/ทีม">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01"></path></svg>
+                </button>
+
+                <!-- Settings Button -->
+                <button onclick="openModal('modal-settings')" class="text-slate-300 hover:text-white p-2 rounded-xl hover:bg-slate-800 border border-slate-700/60 transition-colors" title="ตั้งค่าระบบ">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                </button>
+
+                <!-- Fullscreen Projector -->
+                <button onclick="toggleFullscreen()" class="text-slate-300 hover:text-white p-2 rounded-xl hover:bg-slate-800 border border-slate-700/60 transition-colors" title="โหมดเต็มจอ">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"></path></svg>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="flex-grow max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 w-full space-y-8">
+        
+        <!-- Top 3 Podium -->
+        <section>
+            <div class="flex items-center justify-between mb-4">
+                <div class="flex items-center gap-2">
+                    <span class="text-2xl">🎖️</span>
+                    <h2 class="font-bold text-xl sm:text-2xl text-white">ผู้นำ 3 อันดับแรก (Podium)</h2>
+                </div>
+            </div>
+            <div id="podium-container" class="grid grid-cols-1 md:grid-cols-3 gap-4 lg:gap-6 items-end pt-4 pb-2">
+                <!-- Dynamically populated -->
+            </div>
+        </section>
+
+        <!-- Scoreboard Table & Recent Feed -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- Left 2 Cols: Comprehensive Table -->
+            <section class="lg:col-span-2 space-y-4">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-2">
+                        <span class="text-xl">📊</span>
+                        <h2 class="font-bold text-xl text-white">ตารางสรุปคะแนนรวม</h2>
+                    </div>
+                </div>
+
+                <div class="bg-slate-900/70 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-sm">
+                            <thead class="bg-slate-800/80 text-xs uppercase tracking-wider text-slate-400 border-b border-slate-700/80">
+                                <tr>
+                                    <th class="py-3 px-4 text-center w-14">อันดับ</th>
+                                    <th class="py-3 px-4">สี / ทีม</th>
+                                    <th class="py-3 px-4 text-center">🥇 ทอง</th>
+                                    <th class="py-3 px-4 text-center">🥈 เงิน</th>
+                                    <th class="py-3 px-4 text-center">🥉 ทองแดง</th>
+                                    <th class="py-3 px-4 text-right">คะแนนรวม</th>
+                                </tr>
+                            </thead>
+                            <tbody id="scoreboard-body">
+                                <!-- Dynamically populated -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Rules pill -->
+                <div class="bg-slate-900/40 border border-slate-800 rounded-xl p-3 text-xs text-slate-400 flex flex-wrap items-center justify-between gap-2">
+                    <div class="flex items-center gap-2">
+                        <span>เกณฑ์คะแนน:</span>
+                        <span class="text-yellow-400 font-semibold" id="pill-gold-pts">🥇 ทอง 10 คะแนน</span>
+                        <span>•</span>
+                        <span class="text-slate-300 font-semibold" id="pill-silver-pts">🥈 เงิน 7 คะแนน</span>
+                        <span>•</span>
+                        <span class="text-amber-500 font-semibold" id="pill-bronze-pts">🥉 ทองแดง 5 คะแนน</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Right 1 Col: Recent Logs -->
+            <section class="space-y-4">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-2">
+                        <span class="text-xl">⚡</span>
+                        <h2 class="font-bold text-xl text-white">ประวัติคะแนนล่าสุด</h2>
+                    </div>
+                </div>
+
+                <div class="bg-slate-900/70 border border-slate-800 rounded-2xl p-3 shadow-xl">
+                    <div id="recent-logs-list" class="space-y-2.5 max-h-[500px] overflow-y-auto pr-1">
+                        <!-- Dynamically populated -->
+                    </div>
+                </div>
+            </section>
+        </div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="mt-auto border-t border-slate-900 bg-slate-950/80 py-5 text-center text-xs text-slate-500">
+        <p>🏆 ระบบบันทึกและถ่ายทอดสดคะแนนกีฬาสี • ใช้งานได้บนคอมพิวเตอร์และสมาร์ตโฟน</p>
+    </footer>
+
+    <!-- ================= MODALS ================= -->
+
+    <!-- Modal 1: Add Score -->
+    <div id="modal-add-score" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm hidden">
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-lg w-full p-6 shadow-2xl relative max-h-[90vh] overflow-y-auto">
+            <button onclick="closeModal('modal-add-score')" class="absolute top-4 right-4 text-slate-400 hover:text-white">✕</button>
+            <div class="flex items-center gap-2 mb-4">
+                <span class="text-2xl">📝</span>
+                <h3 class="font-bold text-xl text-white">บันทึกผลการแข่งขัน / คะแนน</h3>
+            </div>
+
+            <form id="form-score" class="space-y-4" onsubmit="submitScore(event)">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">เลือกสี / ทีม</label>
+                    <div id="team-selector" class="grid grid-cols-2 gap-2"></div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1">ชนิดกีฬา / กิจกรรม</label>
+                    <input type="text" id="score-sport" placeholder="เช่น ฟุตบอล, วิ่ง 100ม., กองเชียร์" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3.5 py-2.5 text-white text-sm focus:outline-none focus:border-indigo-500" required>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">ระดับรางวัล / ประเภทคะแนน</label>
+                    <div class="grid grid-cols-2 gap-2 text-sm">
+                        <label class="border border-slate-700 rounded-xl p-2.5 flex items-center gap-2 cursor-pointer hover:border-slate-500">
+                            <input type="radio" name="award" value="gold" checked onchange="toggleCustomPoints(false)">
+                            <span>🥇 เหรียญทอง <span id="opt-gold-pts" class="text-yellow-400 text-xs font-bold">(+10)</span></span>
+                        </label>
+                        <label class="border border-slate-700 rounded-xl p-2.5 flex items-center gap-2 cursor-pointer hover:border-slate-500">
+                            <input type="radio" name="award" value="silver" onchange="toggleCustomPoints(false)">
+                            <span>🥈 เหรียญเงิน <span id="opt-silver-pts" class="text-slate-300 text-xs font-bold">(+7)</span></span>
+                        </label>
+                        <label class="border border-slate-700 rounded-xl p-2.5 flex items-center gap-2 cursor-pointer hover:border-slate-500">
+                            <input type="radio" name="award" value="bronze" onchange="toggleCustomPoints(false)">
+                            <span>🥉 เหรียญทองแดง <span id="opt-bronze-pts" class="text-amber-500 text-xs font-bold">(+5)</span></span>
+                        </label>
+                        <label class="border border-slate-700 rounded-xl p-2.5 flex items-center gap-2 cursor-pointer hover:border-slate-500">
+                            <input type="radio" name="award" value="custom" onchange="toggleCustomPoints(true)">
+                            <span>⭐️ คะแนนพิเศษกำหนดเอง</span>
+                        </label>
+                    </div>
+                </div>
+
+                <div id="custom-points-box" class="hidden">
+                    <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1">ระบุจำนวนคะแนน</label>
+                    <input type="number" id="score-custom-points" value="1" min="1" max="1000" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3.5 py-2 text-white text-sm">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1">รายละเอียดเพิ่มเติม</label>
+                    <input type="text" id="score-desc" placeholder="เช่น รุ่น ม.ปลาย, รอบชิงชนะเลิศ" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3.5 py-2 text-white text-sm">
+                </div>
+
+                <button type="submit" class="w-full bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-bold py-3 rounded-xl shadow-lg mt-2 text-sm transition-all">
+                    บันทึกคะแนนทันที
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal 2: Manage Teams -->
+    <div id="modal-manage-teams" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm hidden">
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-md w-full p-6 shadow-2xl relative max-h-[90vh] overflow-y-auto">
+            <button onclick="closeModal('modal-manage-teams')" class="absolute top-4 right-4 text-slate-400 hover:text-white">✕</button>
+            <div class="flex items-center gap-2 mb-4">
+                <span class="text-2xl">🎨</span>
+                <h3 class="font-bold text-xl text-white">จัดการสี / ทีม</h3>
+            </div>
+
+            <div class="space-y-2 mb-6">
+                <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">สีที่มีอยู่ในระบบ</label>
+                <div id="manage-teams-list" class="space-y-2 max-h-48 overflow-y-auto"></div>
+            </div>
+
+            <form onsubmit="addNewTeam(event)" class="border-t border-slate-800 pt-4 space-y-3">
+                <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider">เพิ่มสีใหม่</label>
+                <div class="flex gap-2">
+                    <input type="text" id="new-team-name" placeholder="เช่น สีม่วง, สีส้ม, สีฟ้า" class="flex-grow bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white text-sm" required>
+                    <input type="color" id="new-team-color" value="#8B5CF6" class="w-12 h-10 bg-slate-800 border border-slate-700 rounded-xl p-1 cursor-pointer">
+                </div>
+                <button type="submit" class="w-full bg-slate-800 hover:bg-slate-700 text-white font-medium py-2 rounded-xl text-sm border border-slate-700">
+                    + เพิ่มสีนี้เข้าระบบ
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal 3: Settings -->
+    <div id="modal-settings" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm hidden">
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-md w-full p-6 shadow-2xl relative max-h-[90vh] overflow-y-auto">
+            <button onclick="closeModal('modal-settings')" class="absolute top-4 right-4 text-slate-400 hover:text-white">✕</button>
+            <div class="flex items-center gap-2 mb-4">
+                <span class="text-2xl">⚙️</span>
+                <h3 class="font-bold text-xl text-white">ตั้งค่าระบบ</h3>
+            </div>
+
+            <form onsubmit="saveSettings(event)" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1">ชื่องานกีฬาสี</label>
+                    <input type="text" id="setting-title" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white text-sm" required>
+                </div>
+
+                <div class="grid grid-cols-3 gap-2">
+                    <div>
+                        <label class="block text-xs font-semibold text-yellow-400 mb-1">🥇 ทอง</label>
+                        <input type="number" id="setting-gold" min="1" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-300 mb-1">🥈 เงิน</label>
+                        <input type="number" id="setting-silver" min="1" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-amber-500 mb-1">🥉 ทองแดง</label>
+                        <input type="number" id="setting-bronze" min="1" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white text-sm">
+                    </div>
+                </div>
+
+                <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 rounded-xl text-sm">
+                    บันทึกการตั้งค่า
+                </button>
+            </form>
+
+            <div class="border-t border-red-500/20 mt-6 pt-4">
+                <label class="block text-xs font-semibold text-red-400 uppercase tracking-wider mb-2">ล้างข้อมูล / เริ่มงานใหม่</label>
+                <button onclick="resetAllScores()" class="w-full bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 font-semibold py-2 rounded-xl text-xs">
+                    ⚠️ รีเซ็ตคะแนนทั้งหมดให้เป็น 0
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Application Script -->
+    <script>
+        const INITIAL_TEAMS = [
+            { id: 1, name: "สีแดง (Red Garnet)", color: "#EF4444", gold: 0, silver: 0, bronze: 0, score: 0 },
+            { id: 2, name: "สีน้ำเงิน (Blue Ocean)", color: "#3B82F6", gold: 0, silver: 0, bronze: 0, score: 0 },
+            { id: 3, name: "สีเขียว (Green Emerald)", color: "#10B981", gold: 0, silver: 0, bronze: 0, score: 0 },
+            { id: 4, name: "สีเหลือง (Yellow Sun)", color: "#F59E0B", gold: 0, silver: 0, bronze: 0, score: 0 },
+        ];
+
+        let state = {
+            title: localStorage.getItem("sp_title") || "มหกรรมกีฬาสีสัมพันธ์ 2026",
+            gold_pts: parseInt(localStorage.getItem("sp_gold") || "10"),
+            silver_pts: parseInt(localStorage.getItem("sp_silver") || "7"),
+            bronze_pts: parseInt(localStorage.getItem("sp_bronze") || "5"),
+            teams: JSON.parse(localStorage.getItem("sp_teams")) || INITIAL_TEAMS,
+            logs: JSON.parse(localStorage.getItem("sp_logs")) || []
+        };
+
+        function saveToStorage() {
+            localStorage.setItem("sp_title", state.title);
+            localStorage.setItem("sp_gold", state.gold_pts);
+            localStorage.setItem("sp_silver", state.silver_pts);
+            localStorage.setItem("sp_bronze", state.bronze_pts);
+            localStorage.setItem("sp_teams", JSON.stringify(state.teams));
+            localStorage.setItem("sp_logs", JSON.stringify(state.logs));
+        }
+
+        function renderAll() {
+            document.getElementById("event-title").textContent = state.title;
+            document.title = `${state.title} | Live Scoreboard`;
+
+            document.getElementById("pill-gold-pts").textContent = `🥇 ทอง ${state.gold_pts} คะแนน`;
+            document.getElementById("pill-silver-pts").textContent = `🥈 เงิน ${state.silver_pts} คะแนน`;
+            document.getElementById("pill-bronze-pts").textContent = `🥉 ทองแดง ${state.bronze_pts} คะแนน`;
+
+            document.getElementById("opt-gold-pts").textContent = `(+${state.gold_pts})`;
+            document.getElementById("opt-silver-pts").textContent = `(+${state.silver_pts})`;
+            document.getElementById("opt-bronze-pts").textContent = `(+${state.bronze_pts})`;
+
+            state.teams.sort((a, b) => b.score - a.score || b.gold - a.gold || b.silver - a.silver || b.bronze - a.bronze);
+
+            renderPodium();
+            renderTable();
+            renderLogs();
+            renderTeamSelector();
+            renderManageTeams();
+        }
+
+        function renderPodium() {
+            const container = document.getElementById("podium-container");
+            const first = state.teams[0], second = state.teams[1], third = state.teams[2];
+
+            const card = (team, rank, medal, height, order) => {
+                if (!team) return "";
+                const isFirst = rank === 1;
+                return `
+                    <div class="${order} flex flex-col items-center justify-end podium-card">
+                        <div class="relative -mb-6 z-10 flex flex-col items-center">
+                            <div class="w-16 h-16 sm:w-20 sm:h-20 rounded-full flex items-center justify-center text-3xl sm:text-4xl shadow-xl border-4 border-slate-900 bg-slate-800">
+                                ${medal}
+                            </div>
+                            ${isFirst ? '<span class="absolute -top-4 text-yellow-400 text-2xl animate-bounce">👑</span>' : ''}
+                        </div>
+                        <div class="w-full pt-8 pb-5 px-4 rounded-3xl ${height} flex flex-col justify-between shadow-2xl border"
+                             style="background: linear-gradient(180deg, ${team.color}22 0%, rgba(15, 23, 42, 0.95) 70%); border-color: ${team.color}66;">
+                            <div class="text-center">
+                                <span class="px-3 py-0.5 rounded-full text-xs text-slate-300 bg-slate-800/80 border border-slate-700">อันดับที่ ${rank}</span>
+                                <h3 class="text-lg sm:text-xl font-bold truncate text-white mt-1">${team.name}</h3>
+                            </div>
+                            <div class="my-3 text-center">
+                                <div class="text-3xl sm:text-5xl font-black text-white" style="color: ${team.color}">${team.score}</div>
+                                <span class="text-xs text-slate-400 uppercase tracking-wider">คะแนนรวม</span>
+                            </div>
+                            <div class="grid grid-cols-3 gap-1 bg-slate-900/80 rounded-xl p-2 border border-slate-800 text-center text-xs">
+                                <div><span class="text-base">🥇</span> <span class="font-bold text-yellow-400 block">${team.gold}</span></div>
+                                <div class="border-x border-slate-800"><span class="text-base">🥈</span> <span class="font-bold text-slate-300 block">${team.silver}</span></div>
+                                <div><span class="text-base">🥉</span> <span class="font-bold text-amber-500 block">${team.bronze}</span></div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            };
+
+            container.innerHTML = `
+                ${card(second, 2, '🥈', 'min-h-[250px]', 'order-2 md:order-1')}
+                ${card(first, 1, '🥇', 'min-h-[290px] border-yellow-500/50', 'order-1 md:order-2')}
+                ${card(third, 3, '🥉', 'min-h-[220px]', 'order-3 md:order-3')}
+            `;
+        }
+
+        function renderTable() {
+            const maxScore = Math.max(...state.teams.map(t => t.score), 1);
+            document.getElementById("scoreboard-body").innerHTML = state.teams.map((t, idx) => `
+                <tr class="border-b border-slate-800/80 hover:bg-slate-800/40 transition-colors">
+                    <td class="py-3.5 px-4 text-center font-bold text-base">
+                        ${idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : idx + 1}
+                    </td>
+                    <td class="py-3.5 px-4">
+                        <div class="flex items-center gap-3">
+                            <div class="w-4 h-4 rounded-full shadow" style="background-color: ${t.color}"></div>
+                            <div class="font-semibold text-white text-base">${t.name}</div>
+                        </div>
+                        <div class="w-full bg-slate-800 h-1.5 rounded-full mt-2">
+                            <div class="h-full rounded-full transition-all duration-500" style="width: ${(t.score / maxScore) * 100}%; background-color: ${t.color};"></div>
+                        </div>
+                    </td>
+                    <td class="py-3.5 px-4 text-center font-semibold text-yellow-400 text-base">${t.gold}</td>
+                    <td class="py-3.5 px-4 text-center font-semibold text-slate-300 text-base">${t.silver}</td>
+                    <td class="py-3.5 px-4 text-center font-semibold text-amber-500 text-base">${t.bronze}</td>
+                    <td class="py-3.5 px-4 text-right">
+                        <span class="text-xl sm:text-2xl font-black" style="color: ${t.color}">${t.score}</span>
+                        <span class="text-xs text-slate-400 ml-1">แต้ม</span>
+                    </td>
+                </tr>
+            `).join("");
+        }
+
+        function renderLogs() {
+            const el = document.getElementById("recent-logs-list");
+            if (state.logs.length === 0) {
+                el.innerHTML = '<div class="text-center py-8 text-slate-500 text-sm">ยังไม่มีประวัติคะแนน</div>';
+                return;
+            }
+            el.innerHTML = state.logs.map(log => `
+                <div class="p-3 rounded-xl bg-slate-900/60 border border-slate-800 flex items-center justify-between">
+                    <div class="flex items-center gap-2.5">
+                        <div class="w-3.5 h-3.5 rounded-full shrink-0" style="background-color: ${log.color}"></div>
+                        <div>
+                            <div class="font-bold text-white text-sm">${log.team} • ${log.sport}</div>
+                            <div class="text-xs text-slate-400">${log.desc ? log.desc + ' ' : ''}(${log.time})</div>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs px-2 py-0.5 rounded font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30">+${log.pts} แต้ม</span>
+                        <button onclick="deleteLog(${log.id})" class="text-slate-500 hover:text-red-400 p-1" title="ลบรายการนี้">✕</button>
+                    </div>
+                </div>
+            `).join("");
+        }
+
+        function renderTeamSelector() {
+            document.getElementById("team-selector").innerHTML = state.teams.map((t, i) => `
+                <label class="border border-slate-700 rounded-xl p-2.5 flex items-center gap-2 cursor-pointer hover:border-slate-500">
+                    <input type="radio" name="sel_team" value="${t.id}" ${i === 0 ? 'checked' : ''}>
+                    <div class="w-3.5 h-3.5 rounded-full" style="background-color: ${t.color}"></div>
+                    <span class="text-xs font-semibold text-white truncate">${t.name}</span>
+                </label>
+            `).join("");
+        }
+
+        function renderManageTeams() {
+            document.getElementById("manage-teams-list").innerHTML = state.teams.map(t => `
+                <div class="flex items-center justify-between p-2.5 rounded-xl bg-slate-800/60 border border-slate-700">
+                    <div class="flex items-center gap-2.5">
+                        <div class="w-4 h-4 rounded-full" style="background-color: ${t.color}"></div>
+                        <span class="text-sm font-semibold text-white">${t.name}</span>
+                    </div>
+                    ${state.teams.length > 2 ? `<button onclick="deleteTeam(${t.id})" class="text-slate-400 hover:text-red-400 p-1">✕</button>` : ''}
+                </div>
+            `).join("");
+        }
+
+        function toggleCustomPoints(show) {
+            document.getElementById("custom-points-box").classList.toggle("hidden", !show);
+        }
+
+        function submitScore(e) {
+            e.preventDefault();
+            const teamId = parseInt(document.querySelector('input[name="sel_team"]:checked').value);
+            const sport = document.getElementById("score-sport").value.trim();
+            const award = document.querySelector('input[name="award"]:checked').value;
+            const desc = document.getElementById("score-desc").value.trim();
+
+            let pts = 0;
+            if (award === "gold") pts = state.gold_pts;
+            else if (award === "silver") pts = state.silver_pts;
+            else if (award === "bronze") pts = state.bronze_pts;
+            else pts = parseInt(document.getElementById("score-custom-points").value) || 1;
+
+            const team = state.teams.find(t => t.id === teamId);
+            team.score += pts;
+            if (award === "gold") team.gold++;
+            if (award === "silver") team.silver++;
+            if (award === "bronze") team.bronze++;
+
+            state.logs.unshift({
+                id: Date.now(),
+                teamId: team.id,
+                team: team.name,
+                color: team.color,
+                sport: sport,
+                award: award,
+                pts: pts,
+                desc: desc,
+                time: new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })
+            });
+
+            saveToStorage();
+            renderAll();
+            closeModal('modal-add-score');
+
+            // Reset form
+            document.getElementById("score-sport").value = "";
+            document.getElementById("score-desc").value = "";
+
+            confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
+            Swal.fire({ icon: 'success', title: `บันทึกคะแนน ${team.name} (+${pts} คะแนน) เรียบร้อย!`, timer: 1500, showConfirmButton: false });
+        }
+
+        function deleteLog(logId) {
+            const idx = state.logs.findIndex(l => l.id === logId);
+            if (idx === -1) return;
+            const log = state.logs[idx];
+
+            const team = state.teams.find(t => t.id === log.teamId);
+            if (team) {
+                team.score = Math.max(0, team.score - log.pts);
+                if (log.award === "gold") team.gold = Math.max(0, team.gold - 1);
+                if (log.award === "silver") team.silver = Math.max(0, team.silver - 1);
+                if (log.award === "bronze") team.bronze = Math.max(0, team.bronze - 1);
+            }
+
+            state.logs.splice(idx, 1);
+            saveToStorage();
+            renderAll();
+            Swal.fire({ icon: 'success', title: 'ยกเลิกรายการเรียบร้อย', timer: 1200, showConfirmButton: false });
+        }
+
+        function addNewTeam(e) {
+            e.preventDefault();
+            const name = document.getElementById("new-team-name").value.trim();
+            const color = document.getElementById("new-team-color").value;
+
+            state.teams.push({
+                id: Date.now(),
+                name: name,
+                color: color,
+                gold: 0,
+                silver: 0,
+                bronze: 0,
+                score: 0
+            });
+
+            document.getElementById("new-team-name").value = "";
+            saveToStorage();
+            renderAll();
+            Swal.fire({ icon: 'success', title: 'เพิ่มสีใหม่แล้ว', timer: 1200, showConfirmButton: false });
+        }
+
+        function deleteTeam(id) {
+            state.teams = state.teams.filter(t => t.id !== id);
+            saveToStorage();
+            renderAll();
+        }
+
+        function saveSettings(e) {
+            e.preventDefault();
+            state.title = document.getElementById("setting-title").value.trim();
+            state.gold_pts = parseInt(document.getElementById("setting-gold").value) || 10;
+            state.silver_pts = parseInt(document.getElementById("setting-silver").value) || 7;
+            state.bronze_pts = parseInt(document.getElementById("setting-bronze").value) || 5;
+
+            saveToStorage();
+            renderAll();
+            closeModal("modal-settings");
+            Swal.fire({ icon: 'success', title: 'บันทึกการตั้งค่าเรียบร้อย', timer: 1200, showConfirmButton: false });
+        }
+
+        function resetAllScores() {
+            Swal.fire({
+                title: 'รีเซ็ตคะแนนทั้งหมด?',
+                text: 'คะแนนและเหรียญรางวัลจะถูกล้างเป็น 0 ทั้งหมด',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#ef4444',
+                confirmButtonText: 'ใช่, รีเซ็ตคะแนน',
+                cancelButtonText: 'ยกเลิก'
+            }).then((res) => {
+                if (res.isConfirmed) {
+                    state.teams.forEach(t => { t.score = 0; t.gold = 0; t.silver = 0; t.bronze = 0; });
+                    state.logs = [];
+                    saveToStorage();
+                    renderAll();
+                    closeModal("modal-settings");
+                    Swal.fire({ icon: 'success', title: 'รีเซ็ตเรียบร้อยแล้ว', timer: 1200, showConfirmButton: false });
+                }
+            });
+        }
+
+        function openModal(id) {
+            document.getElementById(id).classList.remove("hidden");
+            if (id === "modal-settings") {
+                document.getElementById("setting-title").value = state.title;
+                document.getElementById("setting-gold").value = state.gold_pts;
+                document.getElementById("setting-silver").value = state.silver_pts;
+                document.getElementById("setting-bronze").value = state.bronze_pts;
+            }
+        }
+
+        function closeModal(id) {
+            document.getElementById(id).classList.add("hidden");
+        }
+
+        function toggleFullscreen() {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen().catch(() => {});
+            } else {
+                if (document.exitFullscreen) document.exitFullscreen().catch(() => {});
+            }
+        }
+
+        // Initialize
+        renderAll();
+    </script>
+</body>
+</html>
+
